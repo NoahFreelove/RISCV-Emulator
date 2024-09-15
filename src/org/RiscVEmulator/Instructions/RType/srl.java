@@ -14,7 +14,7 @@ public class srl extends RTypeInstruction {
         int rs1Val = state.getRegisterValue(rs1.colloquialName);
         int rs2Val = state.getRegisterValue(rs2.colloquialName);
         // shift right logical the two values in their binary form
-        int result = rs1Val >> rs2Val;
+        int result = rs1Val >>> rs2Val;
         state.setRegisterInt(rd.colloquialName, result);
 
     }

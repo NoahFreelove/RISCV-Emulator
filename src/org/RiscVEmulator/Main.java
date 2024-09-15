@@ -1,29 +1,37 @@
 package org.RiscVEmulator;
 
 import org.RiscVEmulator.Instructions.Decoder;
-import org.RiscVEmulator.Instructions.Instruction;
 import org.RiscVEmulator.Registers.RegNameColloquial;
+
+import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
+        System.out.println("RISC-V Emulator");
+        System.out.println("Noah Freelove - HTN 2024");
+        System.out.println("Only supports I and R type instructions (for now)");
+
         State s = new State();
         s.insertLabel("main", 0);
-        Instruction inst = Decoder.decode("add t0, t1, t2", s);
-        if(inst != null) {
-            s.insertInstruction(inst);
-            System.out.println(inst.toHex());
-        }
 
-        inst = Decoder.decode("sll t0, t0, t3", s);
-        if(inst != null)
-            s.insertInstruction(inst);
+        s.setRegisterInt(RegNameColloquial.t1, 1);
+        s.setRegisterInt(RegNameColloquial.t2, 2);
+        s.setRegisterInt(RegNameColloquial.t3, 5);
 
-        s.setRegisterInt(RegNameColloquial.t3, 1);
-        s.setRegisterInt(RegNameColloquial.t2, 3);
-        s.setRegisterInt(RegNameColloquial.t1, 5);
-        // t0 = 3 + 5 = 8, t3 = 8-5 = 3
-        s.start(false);
-        s.dumpRegisters();
+
+        s.start(true);
+        Scanner scanner = new Scanner(System.in);
+        do{
+            try {
+                s.dumpTemps();
+                System.out.println("press enter to step through the program or enter any text to interpret it as a RISC-V instruction and append it to the end of this program");
+                String input = scanner.nextLine();
+                if(input.isEmpty())
+                    continue;
+                Decoder.decode(input, s);
+
+            }catch (Exception ignore){}
+        } while (s.step());
 
 
     }

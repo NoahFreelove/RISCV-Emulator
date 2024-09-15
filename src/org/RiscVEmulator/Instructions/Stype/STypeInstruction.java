@@ -1,26 +1,26 @@
-package org.RiscVEmulator.Instructions.RType;
+package org.RiscVEmulator.Instructions.Stype;
 
 import org.RiscVEmulator.Instructions.Instruction;
 import org.RiscVEmulator.Instructions.InstructionMetadata.RTypeMetadata;
 import org.RiscVEmulator.Instructions.InstructionType;
+import org.RiscVEmulator.Registers.Immediate;
 import org.RiscVEmulator.Registers.Register;
 import org.RiscVEmulator.State;
 
-public abstract class RTypeInstruction extends Instruction {
-    protected Register rd;
+public abstract class STypeInstruction extends Instruction {
+    protected Immediate imm;
     protected Register rs1;
     protected Register rs2;
-
-    public RTypeInstruction(String instName, Register rd, Register rs1, Register rs2, RTypeMetadata meta, State state) {
+    public STypeInstruction(String instName, Immediate imm, Register rs1, Register rs2, RTypeMetadata meta, State state) {
         super(instName, InstructionType.R_TYPE, meta, state);
-        this.rd = rd;
+        this.imm = imm;
         this.rs1 = rs1;
         this.rs2 = rs2;
     }
 
     @Override
     public String toBinary(boolean spaceSeparated) {
-        // should be encoded in LITTLE ENDIAN as: funct7, rs2, rs1, funct3, rd, opcode
+        // should be encoded in LITTLE ENDIAN as: imm[11:5], rs2, rs1, funct3, imm[4:0], opcode
         // Metadata holds the opcode, funct3, and funct7 while the registers hold the register numbers
         // The instruction is encoded as follows:
         String binOutput = "";
@@ -46,10 +46,6 @@ public abstract class RTypeInstruction extends Instruction {
         funct3 = formatToSize(funct3, 3);
         binOutput += funct3;
 
-        // ensure rd is 5 bits
-        String rd = Integer.toBinaryString(this.rd.name);
-        rd = formatToSize(rd, 5);
-        binOutput += rd;
 
         // Opcode will always be 7 bits because its hardcoded in the metadata
         String opcode = Integer.toBinaryString(metadata.opcode);

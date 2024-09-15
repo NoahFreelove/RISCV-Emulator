@@ -4,6 +4,8 @@ import org.RiscVEmulator.Instructions.InstructionMetadata.InstructionMetadata;
 import org.RiscVEmulator.Instructions.InstructionMetadata.RTypeMetadata;
 import org.RiscVEmulator.Instructions.InstructionMetadata.ITypeMetadata;
 import org.RiscVEmulator.Instructions.RType.*;
+import org.RiscVEmulator.Instructions.IType.*;
+import org.RiscVEmulator.Registers.Immediate;
 import org.RiscVEmulator.Registers.RegNameColloquial;
 import org.RiscVEmulator.Registers.Register;
 import org.RiscVEmulator.State;
@@ -50,11 +52,8 @@ public class Decoder {
             parts[0] = input.substring(0, firstSpace);
             parts[1] = input.substring(firstSpace+1);
         }
-        System.out.println(Arrays.toString(parts));
-        if(parts.length != 2){
-            System.err.println("Invalid instruction format, requires <inst> <space> <rest>");
-            return null;
-        }
+//        System.out.println(Arrays.toString(parts));
+
         InstructionMetadata meta = instructionTypeIndex.get(parts[0]);
 
         if(meta == null){
@@ -62,7 +61,15 @@ public class Decoder {
             return null;
         }
         if (meta instanceof RTypeMetadata data){
-            return decodeRType(data, parts[0], parts[1], s);
+            Instruction res = decodeRType(data, parts[0], parts[1], s);
+            s.insertInstruction(res);
+            return res;
+        }
+
+        if (meta instanceof ITypeMetadata data){
+            Instruction res = decodeIType(data, parts[0], parts[1], s);
+            s.insertInstruction(res);
+            return res;
         }
         return null;
     }
@@ -121,6 +128,65 @@ public class Decoder {
                 case "srl" -> new srl(rd, rs1, rs2, meta, state);
                 case "sra" -> new sra(rd, rs1, rs2, meta, state);
                 case "slt" -> new slt(rd, rs1, rs2, meta, state);
+                case "sltu" -> new sltu(rd, rs1, rs2, meta, state);
+                default -> throw new IllegalStateException("Unexpected value: " + instName);
+            };
+        }
+        catch (Exception e){
+            System.err.println("Error when parsing instruction: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static Instruction decodeIType(ITypeMetadata meta, String instName, String input, State state){
+        String[] split = input.split(",");
+        if(split.length != 3)
+        {
+            System.err.println("Invalid R-Type instruction format, requires <rd>,<rs1>,<imm>. Got: " + input);
+            return null;
+        }
+        for (int i = 0; i < split.length; i++) {
+            split[i] = split[i].stripLeading().stripTrailing();
+            split[i] = split[i].toLowerCase();
+            split[i] = split[i].replace(" ", "");
+        }
+        try {
+            int regInt = -1;
+            if (split[0].startsWith("x")){
+                regInt = Integer.parseInt(split[0].substring(1));
+            }
+            else{
+                RegNameColloquial regName = RegNameColloquial.valueOf(split[0]);
+                regInt = Register.colloquialNameToNumber(regName);
+            }
+
+            Register rd = new Register(regInt);
+
+            if (split[1].startsWith("x")){
+                regInt = Integer.parseInt(split[1].substring(1));
+            }
+            else{
+                RegNameColloquial regName = RegNameColloquial.valueOf(split[1]);
+                regInt = Register.colloquialNameToNumber(regName);
+            }
+
+            Register rs1 = new Register(regInt);
+
+            int imm = Integer.parseInt(split[2]);
+            Immediate immediate = new Immediate(imm, 12);
+
+
+            return switch (instName){
+                case "addi" -> new addi(rd, rs1, immediate, meta, state);
+                case "xori" -> new xori(rd, rs1, immediate, meta, state);
+                case "ori" -> new ori(rd, rs1, immediate, meta, state);
+                case "andi" -> new andi(rd, rs1, immediate, meta, state);
+                case "slli" -> new slli(rd, rs1, immediate, meta, state);
+                case "srli" -> new srli(rd, rs1, immediate, meta, state);
+                case "srai" -> new srai(rd, rs1, immediate, meta, state);
+                case "slti" -> new slti(rd, rs1, immediate, meta, state);
+                case "sltiu" -> new sltiu(rd, rs1, immediate, meta, state);
+
                 default -> throw new IllegalStateException("Unexpected value: " + instName);
             };
         }

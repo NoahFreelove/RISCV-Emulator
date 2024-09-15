@@ -1,6 +1,7 @@
 package org.RiscVEmulator.Instructions.IType;
 
 import org.RiscVEmulator.Instructions.Instruction;
+import org.RiscVEmulator.Instructions.InstructionMetadata.ITypeMetadata;
 import org.RiscVEmulator.Instructions.InstructionMetadata.RTypeMetadata;
 import org.RiscVEmulator.Instructions.InstructionType;
 import org.RiscVEmulator.Registers.Immediate;
@@ -11,25 +12,12 @@ public abstract class ITypeInstruction  extends Instruction {
     protected Register rd;
     protected Register rs1;
     protected Immediate imm;
-    public ITypeInstruction(String instName, Register rd, Register rs1, Immediate imm, RTypeMetadata meta, State state) {
+    public ITypeInstruction(String instName, Register rd, Register rs1, Immediate imm, ITypeMetadata meta, State state) {
         super(instName, InstructionType.R_TYPE, meta, state);
         this.rd = rd;
         this.rs1 = rs1;
         this.imm = imm;
     }
-
-
-    private String formatToSize(String input, int size){
-        while(input.length() < size){
-            input = "0" + input;
-        }
-        if (input.length() > size){
-            input = input.substring(input.length()-size);
-        }
-
-        return input;
-    }
-
 
     @Override
     public String toBinary(boolean spaceSeparated) {
@@ -38,10 +26,23 @@ public abstract class ITypeInstruction  extends Instruction {
         // The instruction is encoded as follows:
         String binOutput = "";
 
-        // ensure imm is 12 bits
-        String imm = this.imm.toBinary();
-        imm = formatToSize(imm, 12);
-        binOutput += imm;
+        // IF this is slli, srli, or srai, we only use the lower 7 bits, and we prepend funct7 to the front
+        if(this.friendlyName.equals("slli") || this.friendlyName.equals("srli") || this.friendlyName.equals("srai")){
+            // ensure funct7 is 7 bits
+            String funct7 = Integer.toBinaryString(((ITypeMetadata)metadata).getFunct7());
+            funct7 = formatToSize(funct7, 7);
+            binOutput += funct7;
+
+            String imm = this.imm.toBinary();
+            imm = formatToSize(imm, 5);
+            binOutput += imm;
+        }
+        else{
+            // ensure imm is 12 bits
+            String imm = this.imm.toBinary();
+            imm = formatToSize(imm, 12);
+            binOutput += imm;
+        }
 
         // ensure rs1 is 5 bits
         String rs1 = Integer.toBinaryString(this.rs1.name);
@@ -50,7 +51,7 @@ public abstract class ITypeInstruction  extends Instruction {
         binOutput += rs1;
 
         // ensure funct3 is 3 bits
-        String funct3 = Integer.toBinaryString(((RTypeMetadata)metadata).getFunct3());
+        String funct3 = Integer.toBinaryString(((ITypeMetadata)metadata).getFunct3());
         funct3 = formatToSize(funct3, 3);
         binOutput += funct3;
 

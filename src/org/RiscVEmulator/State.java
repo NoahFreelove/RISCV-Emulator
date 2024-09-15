@@ -10,14 +10,148 @@ import java.util.HashMap;
 public class State {
     public long PC = 0;
     private HashMap<Integer, String> registers = new HashMap<>();
-    private HashMap<String, Long> labels = new HashMap<>();
+    private HashMap<String, Integer> labels = new HashMap<>();
+    private final ArrayList<Data> data = new ArrayList<>(); // Name, mem offset_bytes
+
     private ArrayList<Instruction> instructions = new ArrayList<>();
-    
-    private static HashMap<Integer, String> getDefaultRegisterValues(){
+    private String memory = "";
+
+    public int DATA_START = 0x0;
+    public int DATA_MAX = 1024*8 + DATA_START; // 1kb data segment
+
+
+    public int STACK_MIN = DATA_MAX;
+    public int STACK_MAX = 1024*1024*8 + STACK_MIN; // 1mb stack
+    public int SP(){
+        return getRegisterValue(RegNameColloquial.sp);
+    }
+
+    public int loadWord(int addr_bytes){
+        int addr_bits = addr_bytes*8;
+
+        if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
+            return -1;
+
+        return Integer.parseInt(memory.substring(addr_bits, addr_bits+32), 2);
+    }
+
+    public String loadWordHex(int addr_bytes){
+        int out = loadWord(addr_bytes);
+        if(out == -1)
+            return "invalid data slice";
+        return Integer.toHexString(out);
+    }
+
+    public String loadWordBinary(int addr_bytes){
+        int out = loadWord(addr_bytes);
+        if(out == -1)
+            return "invalid data slice";
+        return String.format("%32s", Integer.toBinaryString(out)).replace(' ', '0');
+    }
+
+    public int loadHalfWord(int addr_bytes){
+        int addr_bits = addr_bytes*8;
+        if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
+            return -1;
+
+        return Integer.parseInt(memory.substring(addr_bits, addr_bits+16), 2);
+    }
+
+    public int loadByte(int addr_bytes){
+        int addr_bits = addr_bytes*8;
+        if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
+            return -1;
+
+        return Integer.parseInt(memory.substring(addr_bits, addr_bits+8), 2);
+    }
+
+    public void storeWord(int addr_bytes, int value){
+        int addr_bits = addr_bytes*8;
+        if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
+            return;
+
+        memory = memory.substring(0, addr_bits) + String.format("%32s", Integer.toBinaryString(value)).replace(' ', '0') + memory.substring(addr_bytes+32);
+    }
+
+    public void storeHalfWord(int addr_bytes, int value){
+        int addr_bits = addr_bytes*8;
+        if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
+            return;
+
+        memory = memory.substring(0, addr_bits) + String.format("%16s", Integer.toBinaryString(value)).replace(' ', '0') + memory.substring(addr_bits+16);
+    }
+
+    public void storeByte(int addr_bytes, int value){
+        int addr_bits = addr_bytes*8;
+        if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
+            return;
+
+        memory = memory.substring(0, addr_bits) + String.format("%8s", Integer.toBinaryString(value)).replace(' ', '0') + memory.substring(addr_bits+8);
+    }
+
+    public int getDataAddress(String name){
+        Data res = null;
+        for (Data d : data)
+            if (d.name().equals(name))
+                res = d;
+
+        if (res == null)
+            return -1;
+
+        return res.offset_bytes()  + (DATA_START * 8);
+    }
+
+    public void insertWord(String name, int value){
+        int offset = 0;
+        if(data.isEmpty()){
+            data.add(new Data(offset,4, name, DataType.WORD));
+            storeWord(offset, value);
+            return;
+        }
+        offset = data.getLast().offset_bytes();
+        offset += data.getLast().size_bytes();
+        data.add(new Data(offset,4, name, DataType.WORD));
+        storeWord(offset, value);
+    }
+
+    public void insertHalfWord(String name, int value){
+        int offset = 0;
+        if(data.isEmpty()){
+            data.add(new Data(offset,2, name, DataType.HWORD));
+            storeHalfWord(offset, value);
+            return;
+        }
+        offset = data.getLast().offset_bytes();
+        offset += data.getLast().size_bytes();
+        data.add(new Data(offset,2, name, DataType.HWORD));
+        storeHalfWord(offset, value);
+    }
+
+    public void insertByte(String name, int value){
+        int offset = 0;
+        if(data.isEmpty()){
+            data.add(new Data(offset,1, name, DataType.BYTE));
+            storeByte(offset, value);
+            return;
+        }
+        offset = data.getLast().offset_bytes();
+        offset += data.getLast().size_bytes();
+        data.add(new Data(offset,1, name, DataType.BYTE));
+        storeByte(offset, value);
+    }
+
+
+    private void initMemory(){
+        // Create string of all 0's of length STACK_MAX
+        memory = "0".repeat(STACK_MAX);
+    }
+
+    private HashMap<Integer, String> getDefaultRegisterValues(){
         HashMap<Integer,String> out = new HashMap<>();
         for (int i = 0; i < 32; i++) {
             out.put(i, "00000000000000000000000000000000");
         }
+        out.put(Register.colloquialNameToNumber(RegNameColloquial.sp), Long.toBinaryString(STACK_MAX));
         return out;
     }
 
@@ -76,6 +210,30 @@ public class State {
         setRegisterInt(Register.numberToColloquialName(reg), value);
     }
 
+    public void setRegisterTop20Bits(RegNameColloquial name, int value){
+        if(name == RegNameColloquial.zero)
+            return;
+        // Convert decimal to binary
+        String binVal = Integer.toBinaryString(value);
+
+        binVal = String.format("%32s", binVal).replace(' ', '0');
+        String current = registers.get(Register.colloquialNameToNumber(name));
+        current = current.substring(0, 12) + binVal.substring(12);
+        registers.put(Register.colloquialNameToNumber(name), current);
+    }
+
+    public void setRegisterBottom12Bits(RegNameColloquial name, int value){
+        if(name == RegNameColloquial.zero)
+            return;
+        // Convert decimal to binary
+        String binVal = Integer.toBinaryString(value);
+
+        binVal = String.format("%32s", binVal).replace(' ', '0');
+        String current = registers.get(Register.colloquialNameToNumber(name));
+        current = binVal.substring(0, 20) + current.substring(20);
+        registers.put(Register.colloquialNameToNumber(name), current);
+    }
+
     public void setRegisterInt(RegNameColloquial name, int value) {
         if(name == RegNameColloquial.zero)
             return;
@@ -104,7 +262,7 @@ public class State {
     }
 
     public long getLabelAddress(String name){
-        return labels.getOrDefault(name, -1L);
+        return labels.getOrDefault(name, -1);
     }
 
     public Instruction getInstruction(long addr){
@@ -130,6 +288,7 @@ public class State {
 
     public State(){
         this.registers = getDefaultRegisterValues();
+        initMemory();
     }
 
     public void start(boolean step){
@@ -144,13 +303,14 @@ public class State {
         if(!step)
             run();
     }
-    public void step(){
+    public boolean step(){
         if(hasNextInstruction())
         {
             nextInstruction();
-            return;
+            return true;
         }
         complete();
+        return false;
     }
     public void run(){
         while (hasNextInstruction())
@@ -159,16 +319,10 @@ public class State {
     }
     
     public void complete(){
-        System.out.println("complete");
+        System.out.println("Execution complete");
     }
     
-    public void dumpRegisters(){
-        for (int i = 0; i < registers.size(); i++) {
-            System.out.println(Register.numberToColloquialName(i) + ": " + getRegisterValue(i));
-        }
-    }
-    
-    public void insertLabel(String name, long addr){
+    public void insertLabel(String name, int addr){
         labels.put(name, addr);
     }
 
@@ -178,7 +332,7 @@ public class State {
             System.err.println("Instruction address must be a multiple of 4");
             return;
         }
-        System.out.println("Inserting instruction at address: " + addr);
+//        System.out.println("Inserting instruction at address: " + addr);
         int arrLoc = (int) (addr/4);
         if (arrLoc < instructions.size())
             instructions.set(arrLoc, inst);
@@ -193,6 +347,46 @@ public class State {
 
     public void insertInstruction(Instruction inst){
         insertInstruction(4L *(instructions.size()), inst);
+    }
+
+
+    public void dumpRegisters(){
+        for (int i = 0; i < registers.size(); i++) {
+            System.out.println(Register.numberToColloquialName(i) + ": " + getRegisterValue(i));
+        }
+    }
+
+    public void dumpTemps(){
+        for (int i = 5; i < 8; i++) {
+            System.out.println(Register.numberToColloquialName(i) + ": " + getRegisterValue(i));
+        }
+
+        for (int i = 28; i < 32; i++) {
+            System.out.println(Register.numberToColloquialName(i) + ": " + getRegisterValue(i));
+        }
+
+    }
+
+    public void dumpData(){
+        for (Data d : data)
+            System.out.println(d.name() + ": " + d.offset_bytes());
+    }
+
+    public void dumpDataMemory(){
+        for (int i = 0; i < DATA_MAX; i+=32) {
+            System.out.println(i + ": " + memory.substring(i, i+32));
+        }
+    }
+    public void dumpStackMemory(){
+        for (int i = STACK_MIN; i < STACK_MAX; i+=32) {
+            System.out.println(i + ": " + loadWord(i));
+        }
+    }
+
+    public void dumpMemory(){
+        for (int i = 0; i < STACK_MAX; i+=32) {
+            System.out.println(i + ": " + memory.substring(i, i+32));
+        }
     }
 
 

@@ -1,14 +1,14 @@
 package org.RiscVEmulator.Registers;
 
-public class Immediate {
-    public final int value;
-
-    public Immediate(int value) {
-        this.value = value;
-    }
+public record Immediate(int value, int size) {
 
     public String toBinary() {
-        return String.format("%032d", Integer.parseInt(Integer.toBinaryString(value)));
+        String binStr = Integer.toBinaryString(value);
+        // if binStr is longer than size_bytes, truncate it
+        if (binStr.length() > size) {
+            binStr = binStr.substring(binStr.length() - size);
+        }
+        return binStr;
     }
 
 

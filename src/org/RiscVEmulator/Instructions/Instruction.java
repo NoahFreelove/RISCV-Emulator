@@ -18,6 +18,17 @@ public abstract class Instruction {
         this.state = state;
     }
 
+    protected String formatToSize(String input, int size){
+        while(input.length() < size){
+            input = "0" + input;
+        }
+        if (input.length() > size){
+            input = input.substring(input.length()-size);
+        }
+
+        return input;
+    }
+
     public abstract void execute();
 
     public String toBinary(){
