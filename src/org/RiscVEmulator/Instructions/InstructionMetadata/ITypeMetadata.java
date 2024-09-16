@@ -5,11 +5,11 @@ public class ITypeMetadata extends InstructionMetadata{
     int funct7 = 0; // Only usedfor slli,srli,srai because they have the same opcode as IType instructions
 
     public ITypeMetadata(int funct3){
-        this.opcode = 0b0010011;
+        super(0b0010011);
         this.funct3 = funct3;
     }
     public ITypeMetadata(int funct3, int funct7){
-        this.opcode = 0b0010011;
+        super(0b0010011);
         this.funct3 = funct3;
         this.funct7 = funct7;
     }

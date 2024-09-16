@@ -1,10 +1,12 @@
 package org.RiscVEmulator.Instructions;
 
 import org.RiscVEmulator.Instructions.InstructionMetadata.InstructionMetadata;
+import org.RiscVEmulator.Instructions.InstructionMetadata.PseudoMetadata;
 import org.RiscVEmulator.Instructions.InstructionMetadata.RTypeMetadata;
 import org.RiscVEmulator.Instructions.InstructionMetadata.ITypeMetadata;
 import org.RiscVEmulator.Instructions.RType.*;
 import org.RiscVEmulator.Instructions.IType.*;
+import org.RiscVEmulator.Instructions.PseudoInstruction.*;
 import org.RiscVEmulator.Registers.Immediate;
 import org.RiscVEmulator.Registers.RegNameColloquial;
 import org.RiscVEmulator.Registers.Register;
@@ -14,7 +16,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 
 public class Decoder {
-    private static final HashMap<String, InstructionMetadata> instructionTypeIndex = new HashMap<>();
+    public static final HashMap<String, InstructionMetadata> instructionTypeIndex = new HashMap<>();
     static
     {
         instructionTypeIndex.put("add", new RTypeMetadata(0x0,0x00));
@@ -38,8 +40,19 @@ public class Decoder {
         instructionTypeIndex.put("slli", new ITypeMetadata(0x1, 0x00));
         instructionTypeIndex.put("srli", new ITypeMetadata(0x5, 0x00));
 
+        // pseudo instructions (these dont really have a metadata, so we just use their equivalent real metadata)
+        instructionTypeIndex.put("li", new PseudoMetadata(0b0010011, 0x0, 0x0));
     }
+
+
     public static Instruction decode(String input, State s){
+        if(input.isEmpty())
+            return null;
+
+        if (checkLabel(input, s)){
+            return null;
+        }
+
         input = input.stripLeading().stripTrailing();
 
         int firstSpace = input.indexOf(" ");
@@ -52,33 +65,93 @@ public class Decoder {
             parts[0] = input.substring(0, firstSpace);
             parts[1] = input.substring(firstSpace+1);
         }
-//        System.out.println(Arrays.toString(parts));
 
         InstructionMetadata meta = instructionTypeIndex.get(parts[0]);
-
-        if(meta == null){
-            System.err.println("Unknown instruction: " + parts[0]);
+        if (meta == null){
+            System.err.println("Unknown instruction: " + Arrays.toString(parts));
             return null;
         }
-        if (meta instanceof RTypeMetadata data){
-            Instruction res = decodeRType(data, parts[0], parts[1], s);
-            s.insertInstruction(res);
-            return res;
+        switch (meta) {
+            case RTypeMetadata data -> {
+                Instruction res = decodeRType(data, parts[0], parts[1], s);
+                s.insertInstruction(res);
+                return res;
+            }
+            case ITypeMetadata data -> {
+                Instruction res = decodeIType(data, parts[0], parts[1], s);
+                s.insertInstruction(res);
+                return res;
+            }
+            case PseudoMetadata data -> {
+                Instruction res = decodePseudo(data, parts[0], parts[1], s);
+                s.insertInstruction(res);
+                return res;
+            }
+            default -> {
+                System.err.println("Unknown instruction: " + parts[0]);
+            }
         }
 
-        if (meta instanceof ITypeMetadata data){
-            Instruction res = decodeIType(data, parts[0], parts[1], s);
-            s.insertInstruction(res);
-            return res;
+        return null;
+    }
+
+    private static boolean checkLabel(String input, State state) {
+
+        // check if this is a label using regex
+        if (input.matches("^[a-zA-Z0-9_]+:$")){
+            // add label to state
+
+            String labelName = input.substring(0, input.length()-1);
+            state.insertLabel(labelName, state.getInstructionCount() * 4); // each instruction is 4 bytes
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private static Instruction decodePseudo(PseudoMetadata data, String instName, String input, State s) {
+        String[] split = input.split(",");
+        for (int i = 0; i < split.length; i++) {
+            split[i] = split[i].stripLeading().stripTrailing();
+            split[i] = split[i].toLowerCase();
+            split[i] = split[i].replace(" ", "");
+        }
+
+        switch (instName){
+            case "li" -> {
+                try {
+                    return li.decode(split, s);
+                }
+                catch (Exception e){
+                    System.err.println("Error when parsing <li> instruction: " + e.getMessage());
+                    return null;
+                }
+            }
+            default -> {
+                System.err.println("Unknown pseudo instruction: " + instName);
+            }
         }
         return null;
+    }
+    public static Register tryParseRegister(String input) throws NumberFormatException{
+        int regInt = -1;
+        if (input.startsWith("x")){
+            regInt = Integer.parseInt(input.substring(1));
+        }
+        else{
+            RegNameColloquial regName = RegNameColloquial.valueOf(input);
+            regInt = Register.colloquialNameToNumber(regName);
+        }
+
+        return new Register(regInt);
     }
 
     private static Instruction decodeRType(RTypeMetadata meta, String instName, String input, State state){
         String[] split = input.split(",");
         if(split.length != 3)
         {
-            System.err.println("Invalid R-Type instruction format, requires <rd>,<rs1>,<rs2>. Got: " + input);
+            System.err.println("Invalid R-Type instruction format, requires <rd>,<rs1>,<rs2>. Got: " + Arrays.toString(split));
             return null;
         }
         for (int i = 0; i < split.length; i++) {
@@ -87,36 +160,9 @@ public class Decoder {
             split[i] = split[i].replace(" ", "");
         }
         try {
-            int regInt = -1;
-            if (split[0].startsWith("x")){
-                regInt = Integer.parseInt(split[0].substring(1));
-            }
-            else{
-                RegNameColloquial regName = RegNameColloquial.valueOf(split[0]);
-                regInt = Register.colloquialNameToNumber(regName);
-            }
-
-            Register rd = new Register(regInt);
-
-            if (split[1].startsWith("x")){
-                regInt = Integer.parseInt(split[1].substring(1));
-            }
-            else{
-                RegNameColloquial regName = RegNameColloquial.valueOf(split[1]);
-                regInt = Register.colloquialNameToNumber(regName);
-            }
-
-            Register rs1 = new Register(regInt);
-
-            if (split[2].startsWith("x")){
-                regInt = Integer.parseInt(split[2].substring(1));
-            }
-            else{
-                RegNameColloquial regName = RegNameColloquial.valueOf(split[2]);
-                regInt = Register.colloquialNameToNumber(regName);
-            }
-
-            Register rs2 = new Register(regInt);
+            Register rd = tryParseRegister(split[0]);
+            Register rs1 = tryParseRegister(split[1]);
+            Register rs2 = tryParseRegister(split[2]);
 
             return switch (instName){
                 case "add" -> new add(rd, rs1, rs2, meta, state);
@@ -142,7 +188,7 @@ public class Decoder {
         String[] split = input.split(",");
         if(split.length != 3)
         {
-            System.err.println("Invalid R-Type instruction format, requires <rd>,<rs1>,<imm>. Got: " + input);
+            System.err.println("Invalid R-Type instruction format, requires <rd>,<rs1>,<imm>. Got: " + Arrays.toString(split));
             return null;
         }
         for (int i = 0; i < split.length; i++) {
@@ -151,28 +197,20 @@ public class Decoder {
             split[i] = split[i].replace(" ", "");
         }
         try {
-            int regInt = -1;
-            if (split[0].startsWith("x")){
-                regInt = Integer.parseInt(split[0].substring(1));
+            Register rd = tryParseRegister(split[0]);
+            Register rs1 = tryParseRegister(split[1]);
+
+            int imm = 0;
+            // if starts with 0x or 0b, then parse as hex or binary
+            if (split[2].startsWith("0x")){
+                imm = Integer.parseInt(split[2].substring(2), 16);
+            }
+            else if (split[2].startsWith("0b")){
+                imm = Integer.parseInt(split[2].substring(2), 2);
             }
             else{
-                RegNameColloquial regName = RegNameColloquial.valueOf(split[0]);
-                regInt = Register.colloquialNameToNumber(regName);
+                imm = Integer.parseInt(split[2]);
             }
-
-            Register rd = new Register(regInt);
-
-            if (split[1].startsWith("x")){
-                regInt = Integer.parseInt(split[1].substring(1));
-            }
-            else{
-                RegNameColloquial regName = RegNameColloquial.valueOf(split[1]);
-                regInt = Register.colloquialNameToNumber(regName);
-            }
-
-            Register rs1 = new Register(regInt);
-
-            int imm = Integer.parseInt(split[2]);
             Immediate immediate = new Immediate(imm, 12);
 
 

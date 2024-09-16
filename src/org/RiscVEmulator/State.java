@@ -8,7 +8,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 public class State {
-    public long PC = 0;
+    public int PC = 0;
+    public Instruction lastInstruction = null;
     private HashMap<Integer, String> registers = new HashMap<>();
     private HashMap<String, Integer> labels = new HashMap<>();
     private final ArrayList<Data> data = new ArrayList<>(); // Name, mem offset_bytes
@@ -16,16 +17,17 @@ public class State {
     private ArrayList<Instruction> instructions = new ArrayList<>();
     private String memory = "";
 
-    public int DATA_START = 0x0;
-    public int DATA_MAX = 1024*8 + DATA_START; // 1kb data segment
+    public final int DATA_START = 0x0;
+    public final int DATA_MAX = 1024*8 + DATA_START; // 1kb data segment
 
 
-    public int STACK_MIN = DATA_MAX;
-    public int STACK_MAX = 1024*1024*8 + STACK_MIN; // 1mb stack
+    public final int STACK_MIN = DATA_MAX;
+    public final int STACK_MAX = 1024*1024*8 + STACK_MIN; // 1mb stack
     public int SP(){
         return getRegisterValue(RegNameColloquial.sp);
     }
 
+    // region Memory
     public int loadWord(int addr_bytes){
         int addr_bits = addr_bytes*8;
 
@@ -154,7 +156,10 @@ public class State {
         out.put(Register.colloquialNameToNumber(RegNameColloquial.sp), Long.toBinaryString(STACK_MAX));
         return out;
     }
+// endregion
 
+
+    // region Registers
     public int getRegisterValue(RegNameColloquial name){
         if(!registers.containsKey(Register.colloquialNameToNumber(name)))
             return -1;
@@ -244,10 +249,6 @@ public class State {
         registers.put(Register.colloquialNameToNumber(name), String.format("%32s", binVal).replace(' ', '0'));
     }
 
-    public void shiftPC(int shift){
-        PC += shift;
-    }
-
     public void shiftRegister(RegNameColloquial name, int shift){
         if(name == RegNameColloquial.zero)
             return;
@@ -260,9 +261,26 @@ public class State {
         binVal = Integer.toBinaryString(decVal);
         registers.put(Register.colloquialNameToNumber(name), binVal);
     }
+    //endregion
 
-    public long getLabelAddress(String name){
+    public void shiftPC(int shift){
+        if(shift % 4 != 0)
+        {
+            System.err.println("tried to shift PC by non-multiple of 4");
+            return;
+        }
+        PC += shift;
+    }
+
+    public int getLabelAddress(String name){
         return labels.getOrDefault(name, -1);
+    }
+
+    public int getRelativeLabelAddress(String name){
+        int addr = getLabelAddress(name);
+        if(addr == -1)
+            return -1;
+        return addr - PC;
     }
 
     public Instruction getInstruction(long addr){
@@ -282,6 +300,7 @@ public class State {
     
     // assumes there is a next instruction!
     public void nextInstruction(){
+        lastInstruction = getInstruction(PC);
         getInstruction(PC).execute();
         PC += 4;
     }
@@ -296,7 +315,7 @@ public class State {
     }
     
     public void startAt(String labelName, boolean step){
-        long addr = getLabelAddress(labelName);
+        int addr = getLabelAddress(labelName);
         if(addr != -1){
             PC = addr;
         }
@@ -324,6 +343,10 @@ public class State {
     
     public void insertLabel(String name, int addr){
         labels.put(name, addr);
+    }
+
+    public int getInstructionCount(){
+        return instructions.size();
     }
 
     public void insertInstruction(long addr, Instruction inst){

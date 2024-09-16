@@ -1,18 +1,20 @@
-package org.RiscVEmulator.Instructions.IType;
+package org.RiscVEmulator.Instructions.PseudoInstruction;
 
 import org.RiscVEmulator.Instructions.Instruction;
 import org.RiscVEmulator.Instructions.InstructionMetadata.ITypeMetadata;
-import org.RiscVEmulator.Instructions.InstructionMetadata.RTypeMetadata;
+import org.RiscVEmulator.Instructions.InstructionMetadata.PseudoMetadata;
 import org.RiscVEmulator.Instructions.InstructionType;
 import org.RiscVEmulator.Registers.Immediate;
 import org.RiscVEmulator.Registers.Register;
 import org.RiscVEmulator.State;
 
-public abstract class ITypeInstruction  extends Instruction {
+// Contains every field but will determine which to use based on name as many pseudo instructions
+// Have different fields but are similar types,etc.
+public abstract class PseudoTypeInstruction extends Instruction {
     protected Register rd;
     protected Register rs1;
     protected Immediate imm;
-    public ITypeInstruction(String instName, Register rd, Register rs1, Immediate imm, ITypeMetadata meta, State state) {
+    public PseudoTypeInstruction(String instName, Register rd, Register rs1, Register rs2, Immediate imm, PseudoMetadata meta, State state) {
         super(instName, InstructionType.R_TYPE, meta, state);
         this.rd = rd;
         this.rs1 = rs1;
@@ -24,7 +26,7 @@ public abstract class ITypeInstruction  extends Instruction {
         // should be encoded in LITTLE ENDIAN as: imm[11:0], rs1, funct3, rd, opcode
         // Metadata holds the opcode, funct3, and funct7 while the registers hold the register numbers
         // The instruction is encoded as follows:
-        String binOutput = "";
+        /*String binOutput = "";
 
         // IF this is slli, srli, or srai, we only use the lower 7 bits, and we prepend funct7 to the front
         if(this.friendlyName.equals("slli") || this.friendlyName.equals("srli") || this.friendlyName.equals("srai")){
@@ -73,11 +75,23 @@ public abstract class ITypeInstruction  extends Instruction {
             binOutput = binOutput.substring(0, i) + " " + binOutput.substring(i);
         }
 
-        return binOutput;
+        return binOutput;*/
+        return "0".repeat(32);
     }
 
     @Override
     public String toString() {
-        return friendlyName + " " + rd.colloquialName + ", " + rs1.colloquialName + ", " + imm.value();
+        StringBuilder sb = new StringBuilder();
+        sb.append(friendlyName).append(" ");
+        if(rd != null){
+            sb.append(rd.colloquialName).append(", ");
+        }
+        if(rs1 != null){
+            sb.append(rs1.colloquialName).append(", ");
+        }
+        if(imm != null){
+            sb.append(imm.value()).append(", ");
+        }
+        return sb.toString();
     }
 }

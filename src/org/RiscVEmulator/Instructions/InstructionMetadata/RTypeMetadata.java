@@ -5,7 +5,7 @@ public class RTypeMetadata extends InstructionMetadata{
     int funct7;
 
     public RTypeMetadata(int funct3, int funct7){
-        this.opcode = 0b0110011;
+        super(0b0110011);
         this.funct3 = funct3;
         this.funct7 = funct7;
     }

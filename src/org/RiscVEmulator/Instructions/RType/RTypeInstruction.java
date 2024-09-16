@@ -66,4 +66,8 @@ public abstract class RTypeInstruction extends Instruction {
 
         return binOutput;
     }
+    @Override
+    public String toString() {
+        return friendlyName + " " + rd.colloquialName + ", " + rs1.colloquialName + ", " + rs2.colloquialName;
+    }
 }
