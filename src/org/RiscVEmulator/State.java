@@ -332,6 +332,9 @@ public class State {
     // assumes there is a next instruction!
     public void nextInstruction(){
         lastInstruction = getInstruction(PC);
+        if(PC % 4 != 0)
+            PC += 4 - (PC % 4);
+
         getInstruction(PC).execute();
         PC += 4;
     }

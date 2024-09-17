@@ -39,6 +39,7 @@ public class Decoder {
         instructionTypeIndex.put("srai", new ITypeMetadata(0x5, 0x20));
         instructionTypeIndex.put("slli", new ITypeMetadata(0x1, 0x00));
         instructionTypeIndex.put("srli", new ITypeMetadata(0x5, 0x00));
+        instructionTypeIndex.put("jalr", new ITypeMetadata(0b1100111,0x0, 0x0));
 
         // S Type
         instructionTypeIndex.put("sw", new STypeMetadata(0x2));
@@ -49,6 +50,7 @@ public class Decoder {
         instructionTypeIndex.put("li", new PseudoMetadata(0b0010011, 0x0, 0x0));
         instructionTypeIndex.put("la", new PseudoMetadata(0b0000000, 0x0, 0x0));
         instructionTypeIndex.put("nop", new PseudoMetadata(0b0010011, 0x7, 0x0));
+        instructionTypeIndex.put("mv", new PseudoMetadata(0b0010011, 0x0, 0x0));
 
     }
 
@@ -150,6 +152,15 @@ public class Decoder {
                     return null;
                 }
             }
+            case "mv" -> {
+                try {
+                    return mv.decode(split, s);
+                }
+                catch (Exception e){
+                    System.err.println("Error when parsing <mv> instruction: " + e.getMessage());
+                    return null;
+                }
+            }
             case "nop" ->{
                 return new nop(data, s);
             }
@@ -213,7 +224,7 @@ public class Decoder {
         String[] split = input.split(",");
         if(split.length != 3)
         {
-            System.err.println("Invalid R-Type instruction format, requires <rd>,<rs1>,<imm>. Got: " + Arrays.toString(split));
+            System.err.println("Invalid I-Type instruction format, requires <rd>,<rs1>,<imm>. Got: " + Arrays.toString(split));
             return null;
         }
         for (int i = 0; i < split.length; i++) {
@@ -249,6 +260,7 @@ public class Decoder {
                 case "srai" -> new srai(rd, rs1, immediate, meta, state);
                 case "slti" -> new slti(rd, rs1, immediate, meta, state);
                 case "sltiu" -> new sltiu(rd, rs1, immediate, meta, state);
+                case "jalr" -> new jalr(rd, rs1, immediate, meta, state);
 
                 default -> throw new IllegalStateException("Unexpected value: " + instName);
             };
@@ -263,7 +275,7 @@ public class Decoder {
         String[] split = input.split(",");
         if(split.length != 2)
         {
-            System.err.println("Invalid R-Type instruction format, requires <rd>,<rs1>,<imm>. Got: " + Arrays.toString(split));
+            System.err.println("Invalid S-Type instruction format, requires <rs2>,<offset>(<rs1>). Got: " + Arrays.toString(split));
             return null;
         }
         for (int i = 0; i < split.length; i++) {
@@ -285,7 +297,7 @@ public class Decoder {
             
             Register rs1 = tryParseRegister(parts[1]);
             
-            int imm = 0;
+            int imm;
             // if starts with 0x or 0b, then parse as hex or binary
             if (parts[0].startsWith("0x")){
                 imm = Integer.parseInt(parts[0].substring(2), 16);

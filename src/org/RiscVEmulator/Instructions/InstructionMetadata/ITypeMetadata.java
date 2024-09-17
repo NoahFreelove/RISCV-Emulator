@@ -13,6 +13,12 @@ public class ITypeMetadata extends InstructionMetadata{
         this.funct3 = funct3;
         this.funct7 = funct7;
     }
+
+    public ITypeMetadata(int opcode, int funct3, int funct7){
+        super(opcode);
+        this.funct3 = funct3;
+        this.funct7 = funct7;
+    }
     public int getFunct3(){
         return funct3;
     }
