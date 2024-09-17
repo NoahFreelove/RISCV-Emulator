@@ -1,4 +1,4 @@
-package org.RiscVEmulator;
+package org.RiscVEmulator.Data;
 
 public enum DataType {
     BYTE,

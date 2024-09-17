@@ -1,11 +1,9 @@
 package org.RiscVEmulator.Instructions;
 
-import org.RiscVEmulator.Instructions.InstructionMetadata.InstructionMetadata;
-import org.RiscVEmulator.Instructions.InstructionMetadata.PseudoMetadata;
-import org.RiscVEmulator.Instructions.InstructionMetadata.RTypeMetadata;
-import org.RiscVEmulator.Instructions.InstructionMetadata.ITypeMetadata;
+import org.RiscVEmulator.Instructions.InstructionMetadata.*;
 import org.RiscVEmulator.Instructions.RType.*;
 import org.RiscVEmulator.Instructions.IType.*;
+import org.RiscVEmulator.Instructions.SType.*;
 import org.RiscVEmulator.Instructions.PseudoInstruction.*;
 import org.RiscVEmulator.Registers.Immediate;
 import org.RiscVEmulator.Registers.RegNameColloquial;
@@ -19,6 +17,7 @@ public class Decoder {
     public static final HashMap<String, InstructionMetadata> instructionTypeIndex = new HashMap<>();
     static
     {
+        // R Type
         instructionTypeIndex.put("add", new RTypeMetadata(0x0,0x00));
         instructionTypeIndex.put("sub", new RTypeMetadata(0x0,0x20));
         instructionTypeIndex.put("xor", new RTypeMetadata(0x4,0x00));
@@ -30,6 +29,7 @@ public class Decoder {
         instructionTypeIndex.put("slt", new RTypeMetadata(0x2,0x00));
         instructionTypeIndex.put("sltu", new RTypeMetadata(0x3,0x00));
 
+        // I Type
         instructionTypeIndex.put("addi", new ITypeMetadata(0x0));
         instructionTypeIndex.put("xori", new ITypeMetadata(0x4));
         instructionTypeIndex.put("ori", new ITypeMetadata(0x6));
@@ -40,8 +40,16 @@ public class Decoder {
         instructionTypeIndex.put("slli", new ITypeMetadata(0x1, 0x00));
         instructionTypeIndex.put("srli", new ITypeMetadata(0x5, 0x00));
 
+        // S Type
+        instructionTypeIndex.put("sw", new STypeMetadata(0x2));
+        instructionTypeIndex.put("sh", new STypeMetadata(0x1));
+        instructionTypeIndex.put("sb", new STypeMetadata(0x0));
+
         // pseudo instructions (these dont really have a metadata, so we just use their equivalent real metadata)
         instructionTypeIndex.put("li", new PseudoMetadata(0b0010011, 0x0, 0x0));
+        instructionTypeIndex.put("la", new PseudoMetadata(0b0000000, 0x0, 0x0));
+        instructionTypeIndex.put("nop", new PseudoMetadata(0b0010011, 0x7, 0x0));
+
     }
 
 
@@ -79,6 +87,11 @@ public class Decoder {
             }
             case ITypeMetadata data -> {
                 Instruction res = decodeIType(data, parts[0], parts[1], s);
+                s.insertInstruction(res);
+                return res;
+            }
+            case STypeMetadata data -> {
+                Instruction res = decodeSType(data, parts[0], parts[1], s);
                 s.insertInstruction(res);
                 return res;
             }
@@ -127,6 +140,18 @@ public class Decoder {
                     System.err.println("Error when parsing <li> instruction: " + e.getMessage());
                     return null;
                 }
+            }
+            case "la" -> {
+                try {
+                    return la.decode(split, s);
+                }
+                catch (Exception e){
+                    System.err.println("Error when parsing <la> instruction: " + e.getMessage());
+                    return null;
+                }
+            }
+            case "nop" ->{
+                return new nop(data, s);
             }
             default -> {
                 System.err.println("Unknown pseudo instruction: " + instName);
@@ -225,6 +250,59 @@ public class Decoder {
                 case "slti" -> new slti(rd, rs1, immediate, meta, state);
                 case "sltiu" -> new sltiu(rd, rs1, immediate, meta, state);
 
+                default -> throw new IllegalStateException("Unexpected value: " + instName);
+            };
+        }
+        catch (Exception e){
+            System.err.println("Error when parsing instruction: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static Instruction decodeSType(STypeMetadata meta, String instName, String input, State state){
+        String[] split = input.split(",");
+        if(split.length != 2)
+        {
+            System.err.println("Invalid R-Type instruction format, requires <rd>,<rs1>,<imm>. Got: " + Arrays.toString(split));
+            return null;
+        }
+        for (int i = 0; i < split.length; i++) {
+            split[i] = split[i].stripLeading().stripTrailing();
+            split[i] = split[i].toLowerCase();
+            split[i] = split[i].replace(" ", "");
+        }
+        try {
+            Register rs2 = tryParseRegister(split[0]);
+
+
+            // use regex to parse offset and dest register. form: rs2, offset(rs1)
+            String[] parts = split[1].split("\\(");
+            if(parts.length != 2){
+                System.err.println("Invalid S-Type instruction format, requires <rs2>,<offset>(<rs1>). Got: " + Arrays.toString(parts));
+                return null;
+            }
+            parts[1] = parts[1].substring(0, parts[1].length()-1); // remove the last character which is ')'
+            
+            Register rs1 = tryParseRegister(parts[1]);
+            
+            int imm = 0;
+            // if starts with 0x or 0b, then parse as hex or binary
+            if (parts[0].startsWith("0x")){
+                imm = Integer.parseInt(parts[0].substring(2), 16);
+            }
+            else if (parts[0].startsWith("0b")){
+                imm = Integer.parseInt(parts[0].substring(2), 2);
+            }
+            else{
+                imm = Integer.parseInt(parts[0]);
+            }
+            Immediate immediate = new Immediate(imm, 12);
+
+
+            return switch (instName){
+                case "sw" -> new sw(immediate, rs1, rs2, meta, state);
+                case "sh" -> new sh(immediate, rs1, rs2, meta, state);
+                case "sb" -> new sb(immediate, rs1, rs2, meta, state);
                 default -> throw new IllegalStateException("Unexpected value: " + instName);
             };
         }

@@ -1,5 +1,7 @@
 package org.RiscVEmulator;
 
+import org.RiscVEmulator.Data.Data;
+import org.RiscVEmulator.Data.DataType;
 import org.RiscVEmulator.Instructions.Instruction;
 import org.RiscVEmulator.Registers.RegNameColloquial;
 import org.RiscVEmulator.Registers.Register;
@@ -33,7 +35,6 @@ public class State {
 
         if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
             return -1;
-
         return Integer.parseInt(memory.substring(addr_bits, addr_bits+32), 2);
     }
 
@@ -63,16 +64,17 @@ public class State {
         int addr_bits = addr_bytes*8;
         if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
             return -1;
-
         return Integer.parseInt(memory.substring(addr_bits, addr_bits+8), 2);
     }
 
     public void storeWord(int addr_bytes, int value){
         int addr_bits = addr_bytes*8;
+//        System.out.println("addr bytes, stack start, stack end: " + addr_bytes + ", " + STACK_MIN/8 + ", " + STACK_MAX/8);
         if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
             return;
-
-        memory = memory.substring(0, addr_bits) + String.format("%32s", Integer.toBinaryString(value)).replace(' ', '0') + memory.substring(addr_bytes+32);
+        String newVal = Integer.toBinaryString(value);
+        newVal = String.format("%32s", newVal).replace(' ', '0');
+        memory = memory.substring(0, addr_bits) + newVal + memory.substring(addr_bits+32);
     }
 
     public void storeHalfWord(int addr_bytes, int value){
@@ -80,7 +82,13 @@ public class State {
         if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
             return;
 
-        memory = memory.substring(0, addr_bits) + String.format("%16s", Integer.toBinaryString(value)).replace(' ', '0') + memory.substring(addr_bits+16);
+        // only take last 16 bits of <value>
+        String newVal = Integer.toBinaryString(value);
+        newVal = newVal.substring(newVal.length()-16);
+        // now extend it to 32 bit by prepending 0s
+        newVal = String.format("%16s", newVal).replace(' ', '0');
+
+        memory = memory.substring(0, addr_bits) + newVal + memory.substring(addr_bits+16);
     }
 
     public void storeByte(int addr_bytes, int value){
@@ -88,7 +96,13 @@ public class State {
         if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
             return;
 
-        memory = memory.substring(0, addr_bits) + String.format("%8s", Integer.toBinaryString(value)).replace(' ', '0') + memory.substring(addr_bits+8);
+        String newVal = Integer.toBinaryString(value);
+        newVal = newVal.substring(newVal.length()-8);
+        // now extend it to 32 bit by prepending 0s
+        newVal = String.format("%8s", newVal).replace(' ', '0');
+
+        memory = memory.substring(0, addr_bits) + newVal + memory.substring(addr_bits+8);
+
     }
 
     public int getDataAddress(String name){
@@ -103,7 +117,23 @@ public class State {
         return res.offset_bytes()  + (DATA_START * 8);
     }
 
+    private boolean doesDataHaveName(String name){
+        boolean[] res = new boolean[1];
+
+        data.forEach(data -> {
+            if(data.name().equals(name))
+                res[0] = true;
+        });
+        return res[0];
+    }
+
+
     public void insertWord(String name, int value){
+        if(doesDataHaveName(name))
+            throw new RuntimeException(new UserException("Data already contains name <" + name + ">"));
+        if(labels.containsKey(name))
+            throw new RuntimeException(new UserException("Label already exists with name <" + name + ">, cannot add data."));
+
         int offset = 0;
         if(data.isEmpty()){
             data.add(new Data(offset,4, name, DataType.WORD));
@@ -153,7 +183,7 @@ public class State {
         for (int i = 0; i < 32; i++) {
             out.put(i, "00000000000000000000000000000000");
         }
-        out.put(Register.colloquialNameToNumber(RegNameColloquial.sp), Long.toBinaryString(STACK_MAX));
+        out.put(Register.colloquialNameToNumber(RegNameColloquial.sp), Long.toBinaryString(STACK_MAX/8));
         return out;
     }
 // endregion
@@ -244,6 +274,7 @@ public class State {
             return;
         // Convert decimal to binary
         String binVal = Integer.toBinaryString(value);
+
         // java ints are 32 bits
         binVal = String.format("%32s", binVal).replace(' ', '0');
         registers.put(Register.colloquialNameToNumber(name), String.format("%32s", binVal).replace(' ', '0'));
@@ -342,6 +373,11 @@ public class State {
     }
     
     public void insertLabel(String name, int addr){
+        if(labels.containsKey(name))
+            throw new RuntimeException(new UserException("Cannot insert two labels with the same name!"));
+        if(doesDataHaveName(name))
+            throw new RuntimeException(new UserException("Cannot insert a label with the same name as a data entry!"));
+
         labels.put(name, addr);
     }
 
@@ -401,14 +437,45 @@ public class State {
         }
     }
     public void dumpStackMemory(){
-        for (int i = STACK_MIN; i < STACK_MAX; i+=32) {
-            System.out.println(i + ": " + loadWord(i));
-        }
+        dumpMemory(STACK_MIN, STACK_MAX, 32);
     }
 
-    public void dumpMemory(){
-        for (int i = 0; i < STACK_MAX; i+=32) {
-            System.out.println(i + ": " + memory.substring(i, i+32));
+    public void dumpStackMemory(int relativeMaxBytes){
+        dumpMemory(STACK_MIN, STACK_MIN + relativeMaxBytes*8, 32);
+    }
+
+
+    private String intToHex(int i){
+        // convert to hex, prepend 0x and ensure its 8 characters long (int max in hex)
+        return "0x" + String.format("%8s", Integer.toHexString(i)).replace(' ', '0');
+    }
+
+    public void rawDumpMemory(){
+        System.out.println(memory);
+    }
+
+    public void dumpMemory(int start, int end, int step){
+        if(step <= 0){
+            System.out.println("Memory Dump: <step> must be greater than 0");
+            return;
+        }
+        for (int i = start; (i+step <= end && i+step < STACK_MAX); i+=step) {
+            if(step == 32){
+                System.out.println("Word @" + (i/8) + ": " + loadWord(i/8));
+            }
+            else if(step == 16){
+                System.out.println("Halfword @" + intToHex(i/8) + ": " + loadHalfWord(i/8));
+            }
+            else if(step == 8){
+                System.out.println("Byte @" + intToHex(i/8) + ": " + loadByte(i/8));
+            }
+            else if (step == 1){
+                System.out.println("Bit @" + intToHex(i/8) + " ( " + (i%8) + ") : " + loadByte(i/8));
+
+            }
+            else{
+                System.out.println("Memory <" + step + " bits> @" + intToHex(i/8) + " (" + (i) + ") : " + loadByte(i/8));
+            }
         }
     }
 

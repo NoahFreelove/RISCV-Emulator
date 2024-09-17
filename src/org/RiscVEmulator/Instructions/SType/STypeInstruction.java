@@ -1,7 +1,8 @@
-package org.RiscVEmulator.Instructions.Stype;
+package org.RiscVEmulator.Instructions.SType;
 
 import org.RiscVEmulator.Instructions.Instruction;
 import org.RiscVEmulator.Instructions.InstructionMetadata.RTypeMetadata;
+import org.RiscVEmulator.Instructions.InstructionMetadata.STypeMetadata;
 import org.RiscVEmulator.Instructions.InstructionType;
 import org.RiscVEmulator.Registers.Immediate;
 import org.RiscVEmulator.Registers.Register;
@@ -11,7 +12,9 @@ public abstract class STypeInstruction extends Instruction {
     protected Immediate imm;
     protected Register rs1;
     protected Register rs2;
-    public STypeInstruction(String instName, Immediate imm, Register rs1, Register rs2, RTypeMetadata meta, State state) {
+    // remember that rs1 is the one in the parenthesis!
+    // sw rs2, offset(rs1)
+    public STypeInstruction(String instName, Immediate imm, Register rs1, Register rs2, STypeMetadata meta, State state) {
         super(instName, InstructionType.R_TYPE, meta, state);
         this.imm = imm;
         this.rs1 = rs1;
@@ -25,33 +28,27 @@ public abstract class STypeInstruction extends Instruction {
         // The instruction is encoded as follows:
         String binOutput = "";
 
-        // ensure funct7 is 7 bits
-        String funct7 = Integer.toBinaryString(((RTypeMetadata)metadata).getFunct7());
-        funct7 = formatToSize(funct7, 7);
-        binOutput += funct7;
+        // 7 bit imm
+        String imm11_5 = imm.toBinary();
+        imm11_5 = imm11_5.substring(0, 7);
+        binOutput += imm11_5;
 
         // ensure rs2 is 5 bits
-        String rs2 = Integer.toBinaryString(this.rs2.name);
-        rs2 = formatToSize(rs2, 5);
-        binOutput += rs2;
+        binOutput += formatToSize(Integer.toBinaryString(this.rs2.name), 5);
 
         // ensure rs1 is 5 bits
-        String rs1 = Integer.toBinaryString(this.rs1.name);
-        rs1 = formatToSize(rs1, 5);
-
-        binOutput += rs1;
+        binOutput += formatToSize(Integer.toBinaryString(this.rs1.name), 5);
 
         // ensure funct3 is 3 bits
-        String funct3 = Integer.toBinaryString(((RTypeMetadata)metadata).getFunct3());
-        funct3 = formatToSize(funct3, 3);
-        binOutput += funct3;
+        binOutput += formatToSize(Integer.toBinaryString(((STypeMetadata)metadata).getFunct3()), 3);
 
+        // 5 bit imm
+        String imm4_0 = imm.toBinary(); // we don't need to check size because imm class does that for us
+        imm4_0 = imm4_0.substring(7);
+        binOutput += imm4_0;
 
-        // Opcode will always be 7 bits because its hardcoded in the metadata
-        String opcode = Integer.toBinaryString(metadata.opcode);
-        // but we should make sure it is 7 bits
-        opcode = formatToSize(opcode, 7);
-        binOutput += opcode;
+        // ensure opcode is 7 bits
+        binOutput += formatToSize(Integer.toBinaryString(metadata.opcode), 7);
 
         if(!spaceSeparated)
             return binOutput;

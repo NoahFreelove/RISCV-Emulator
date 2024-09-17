@@ -13,11 +13,13 @@ import org.RiscVEmulator.State;
 public abstract class PseudoTypeInstruction extends Instruction {
     protected Register rd;
     protected Register rs1;
+    protected Register rs2;
     protected Immediate imm;
     public PseudoTypeInstruction(String instName, Register rd, Register rs1, Register rs2, Immediate imm, PseudoMetadata meta, State state) {
         super(instName, InstructionType.R_TYPE, meta, state);
         this.rd = rd;
         this.rs1 = rs1;
+        this.rs2 = rs2;
         this.imm = imm;
     }
 
