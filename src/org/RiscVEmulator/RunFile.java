@@ -63,10 +63,10 @@ public class RunFile {
 
             while (s.step()){
                 if(s.lastInstruction != null) {
-                    String hexPC = Integer.toHexString(s.PC-4);
+                    String hexPC = Integer.toHexString(s.PC);
                     // prepend 0x and any 0's to make it of length 8
                     hexPC = "0x" + "0".repeat(8 - hexPC.length()) + hexPC;
-                    System.out.println(hexPC + " : " + s.lastInstruction.toString());
+                    System.out.println("Current Position: " + hexPC + " : Current Instruction: " + s.getInstruction(s.PC) +  ": Last Instruction:" + s.lastInstruction.toString());
                 }
                 s.dumpTemps();
                 scanner.nextLine();

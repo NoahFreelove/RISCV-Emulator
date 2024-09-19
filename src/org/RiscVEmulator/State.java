@@ -11,7 +11,11 @@ import java.util.HashMap;
 
 public class State {
     public int PC = 0;
+
+    public boolean postJump = false;
+
     public Instruction lastInstruction = null;
+
     private HashMap<Integer, String> registers = new HashMap<>();
     private HashMap<String, Integer> labels = new HashMap<>();
     private final ArrayList<Data> data = new ArrayList<>(); // Name, mem offset_bytes
@@ -332,11 +336,17 @@ public class State {
     // assumes there is a next instruction!
     public void nextInstruction(){
         lastInstruction = getInstruction(PC);
+        getInstruction(PC).execute();
+
+        if(postJump){
+            postJump = false;
+        }
+        else{
+            PC += 4;
+        }
+
         if(PC % 4 != 0)
             PC += 4 - (PC % 4);
-
-        getInstruction(PC).execute();
-        PC += 4;
     }
 
     public State(){

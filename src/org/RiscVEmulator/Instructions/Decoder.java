@@ -1,6 +1,7 @@
 package org.RiscVEmulator.Instructions;
 
 import org.RiscVEmulator.Instructions.InstructionMetadata.*;
+import org.RiscVEmulator.Instructions.JType.jal;
 import org.RiscVEmulator.Instructions.RType.*;
 import org.RiscVEmulator.Instructions.IType.*;
 import org.RiscVEmulator.Instructions.SType.*;
@@ -46,11 +47,15 @@ public class Decoder {
         instructionTypeIndex.put("sh", new STypeMetadata(0x1));
         instructionTypeIndex.put("sb", new STypeMetadata(0x0));
 
+        // J Type
+        instructionTypeIndex.put("jal", new JTypeMetadata());
+
         // pseudo instructions (these dont really have a metadata, so we just use their equivalent real metadata)
         instructionTypeIndex.put("li", new PseudoMetadata(0b0010011, 0x0, 0x0));
         instructionTypeIndex.put("la", new PseudoMetadata(0b0000000, 0x0, 0x0));
         instructionTypeIndex.put("nop", new PseudoMetadata(0b0010011, 0x7, 0x0));
         instructionTypeIndex.put("mv", new PseudoMetadata(0b0010011, 0x0, 0x0));
+        instructionTypeIndex.put("j", new PseudoMetadata(0b11001111));
 
     }
 
@@ -94,6 +99,12 @@ public class Decoder {
             }
             case STypeMetadata data -> {
                 Instruction res = decodeSType(data, parts[0], parts[1], s);
+                s.insertInstruction(res);
+                return res;
+            }
+
+            case JTypeMetadata data -> {
+                Instruction res = decodeJType(data, parts[0], parts[1], s);
                 s.insertInstruction(res);
                 return res;
             }
@@ -163,6 +174,11 @@ public class Decoder {
             }
             case "nop" ->{
                 return new nop(data, s);
+            }
+            case "j" ->{
+                if(split.length == 1)
+                    return new j(split[0], data, s);
+                System.err.println("Too few args when parsing <j> instruction! Requires 1, got " + split.length);
             }
             default -> {
                 System.err.println("Unknown pseudo instruction: " + instName);
@@ -271,6 +287,55 @@ public class Decoder {
         }
     }
 
+    private static Instruction decodeJType(JTypeMetadata meta, String instName, String input, State state){
+        String[] split = input.split(",");
+        if(split.length != 2)
+        {
+            System.err.println("Invalid J-Type instruction format, requires <rd>,<imm>. Got: " + Arrays.toString(split));
+            return null;
+        }
+        for (int i = 0; i < split.length; i++) {
+            split[i] = split[i].stripLeading().stripTrailing();
+            split[i] = split[i].toLowerCase();
+            split[i] = split[i].replace(" ", "");
+        }
+        try {
+            Register rd = tryParseRegister(split[0]);
+
+            int imm = 0;
+            String label = "";
+            // if starts with 0x or 0b, then parse as hex or binary
+            if (split[1].startsWith("0x")){
+                imm = Integer.parseInt(split[1].substring(2), 16);
+            }
+            else if (split[1].startsWith("0b")){
+                imm = Integer.parseInt(split[1].substring(2), 2);
+            }
+            else{
+                // if not number, its a label
+                try{
+                    imm = Integer.parseInt(split[1]);
+                }
+                catch (Exception ignore){
+                    label = split[1];
+                }
+            }
+            // imm
+            Immediate immediate = new Immediate(imm, 12);
+
+
+            return switch (instName){
+                case "jal" -> new jal(rd, immediate, label, meta, state);
+
+                default -> throw new IllegalStateException("Unexpected value: " + instName);
+            };
+        }
+        catch (Exception e){
+            System.err.println("Error when parsing instruction: " + e.getMessage());
+            return null;
+        }
+    }
+
     private static Instruction decodeSType(STypeMetadata meta, String instName, String input, State state){
         String[] split = input.split(",");
         if(split.length != 2)
@@ -323,4 +388,6 @@ public class Decoder {
             return null;
         }
     }
+
+    // TODO: Decode binary to instruction
 }

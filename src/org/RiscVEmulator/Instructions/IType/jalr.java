@@ -15,6 +15,7 @@ public class jalr extends ITypeInstruction {
     public void execute() {
         state.setRegisterInt(rd.colloquialName, state.PC + 4);
         int rs1Val = state.getRegisterValue(rs1.colloquialName);
-        state.PC = rs1Val + imm.value() - 4; // when next instruction is called PC will be incremented by 4 so we subtract 4
+        state.PC = rs1Val + imm.value(); // when next instruction is called PC will be incremented by 4 so we subtract 4
+        state.postJump = true;
     }
 }

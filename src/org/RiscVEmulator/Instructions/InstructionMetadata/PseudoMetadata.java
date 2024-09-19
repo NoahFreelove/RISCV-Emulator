@@ -10,6 +10,18 @@ public class PseudoMetadata extends InstructionMetadata{
         this.funct7 = funct7;
     }
 
+    public PseudoMetadata(int opcode, int funct3){
+        super(opcode);
+        this.funct3 = funct3;
+        this.funct7 = 0;
+    }
+
+    public PseudoMetadata(int opcode){
+        super(opcode);
+        this.funct3 = 0;
+        this.funct7 = 0;
+    }
+
     public int getFunct3(){
         return funct3;
     }
