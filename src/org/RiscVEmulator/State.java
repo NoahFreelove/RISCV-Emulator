@@ -316,7 +316,10 @@ public class State {
     public int getRelativeLabelAddress(String name){
         int addr = getLabelAddress(name);
         if(addr == -1)
-            return -1;
+        {
+            System.err.println("Label <" + name + "> not found. Returning 0");
+            return 0;
+        }
         return addr - PC;
     }
 

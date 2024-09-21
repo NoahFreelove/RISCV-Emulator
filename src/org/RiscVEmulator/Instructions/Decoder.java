@@ -1,7 +1,8 @@
 package org.RiscVEmulator.Instructions;
 
+import org.RiscVEmulator.Instructions.BType.*;
 import org.RiscVEmulator.Instructions.InstructionMetadata.*;
-import org.RiscVEmulator.Instructions.JType.jal;
+import org.RiscVEmulator.Instructions.JType.*;
 import org.RiscVEmulator.Instructions.RType.*;
 import org.RiscVEmulator.Instructions.IType.*;
 import org.RiscVEmulator.Instructions.SType.*;
@@ -54,6 +55,14 @@ public class Decoder {
         instructionTypeIndex.put("sw", new STypeMetadata(0x2));
         instructionTypeIndex.put("sh", new STypeMetadata(0x1));
         instructionTypeIndex.put("sb", new STypeMetadata(0x0));
+
+        // B Type
+        instructionTypeIndex.put("beq", new BTypeMetadata(0x0));
+        instructionTypeIndex.put("bne", new BTypeMetadata(0x1));
+        instructionTypeIndex.put("blt", new BTypeMetadata(0x4));
+        instructionTypeIndex.put("bge", new BTypeMetadata(0x5));
+        instructionTypeIndex.put("bltu", new BTypeMetadata(0x6));
+        instructionTypeIndex.put("bgeu", new BTypeMetadata(0x7));
 
         // U Type
         instructionTypeIndex.put("lui", new UTypeMetadata(0b0110111));
@@ -117,6 +126,11 @@ public class Decoder {
             }
             case STypeMetadata data -> {
                 Instruction res = decodeSType(data, parts[0], parts[1], s);
+                s.insertInstruction(res);
+                return res;
+            }
+            case BTypeMetadata data -> {
+                Instruction res = decodeBType(data, parts[0], parts[1], s);
                 s.insertInstruction(res);
                 return res;
             }
@@ -392,6 +406,60 @@ public class Decoder {
             return switch (instName){
                 case "jal" -> new jal(rd, immediate, label, meta, state);
 
+                default -> throw new IllegalStateException("Unexpected value: " + instName);
+            };
+        }
+        catch (Exception e){
+            System.err.println("Error when parsing instruction: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static Instruction decodeBType(BTypeMetadata meta, String instName, String input, State state){
+        String[] split = input.split(",");
+        if(split.length != 3)
+        {
+            System.err.println("Invalid B-Type instruction format, requires <rs1>,<rs2>, <imm>. Got: " + Arrays.toString(split));
+            return null;
+        }
+        for (int i = 0; i < split.length; i++) {
+            split[i] = split[i].stripLeading().stripTrailing();
+            split[i] = split[i].toLowerCase();
+            split[i] = split[i].replace(" ", "");
+        }
+        try {
+            Register rs1 = tryParseRegister(split[0]);
+            Register rs2 = tryParseRegister(split[1]);
+
+            int imm = 0;
+            String label = "";
+            // if starts with 0x or 0b, then parse as hex or binary
+            if (split[2].startsWith("0x")){
+                imm = Integer.parseInt(split[2].substring(2), 16);
+            }
+            else if (split[2].startsWith("0b")){
+                imm = Integer.parseInt(split[2].substring(2), 2);
+            }
+            else{
+                // if not number, its a label
+                try{
+                    imm = Integer.parseInt(split[2]);
+                }
+                catch (Exception ignore){
+                    label = split[2];
+                }
+            }
+            // imm
+            Immediate immediate = new Immediate(imm, 12);
+
+
+            return switch (instName){
+                case "beq" -> new beq(rs1, rs2, immediate, label, meta, state);
+                case "bne" -> new bne(rs1, rs2, immediate, label, meta, state);
+                case "blt" -> new blt(rs1, rs2, immediate, label, meta, state);
+                case "bge" -> new bge(rs1, rs2, immediate, label, meta, state);
+                case "bltu" -> new bltu(rs1, rs2, immediate, label, meta, state);
+                case "bgeu" -> new bgeu(rs1, rs2, immediate, label, meta, state);
                 default -> throw new IllegalStateException("Unexpected value: " + instName);
             };
         }
