@@ -365,7 +365,7 @@ public class State {
     
     public void startAt(String labelName, boolean step){
         int addr = getLabelAddress(labelName);
-        if(addr != -1){
+        if(addr != 0){
             PC = addr;
         }
         if(!step)

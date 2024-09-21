@@ -1,14 +1,6 @@
 package org.RiscVEmulator;
 
 import org.RiscVEmulator.Instructions.Decoder;
-import org.RiscVEmulator.Instructions.IType.addi;
-import org.RiscVEmulator.Instructions.InstructionMetadata.ITypeMetadata;
-import org.RiscVEmulator.Instructions.InstructionMetadata.RTypeMetadata;
-import org.RiscVEmulator.Instructions.RType.add;
-import org.RiscVEmulator.Instructions.SType.sw;
-import org.RiscVEmulator.Registers.Immediate;
-import org.RiscVEmulator.Registers.RegNameColloquial;
-import org.RiscVEmulator.Registers.Register;
 
 import java.util.Scanner;
 
@@ -16,29 +8,36 @@ public class Main {
     public static void main(String[] args) {
         System.out.println("RISC-V Emulator");
         System.out.println("Noah Freelove - 2024");
-        System.out.println("Only supports I and R type instructions (for now)");
+        System.out.println("Supports all standard instruction types.");
 
         State s = new State();
         s.insertLabel("main", 0);
 
-        s.setRegisterInt(RegNameColloquial.t0, 50);
-//        s.insertInstruction(new add(new Register(RegNameColloquial.t1), new Register(RegNameColloquial.zero), new Register(RegNameColloquial.sp), (RTypeMetadata) Decoder.instructionTypeIndex.get("add"),s));
-//        s.insertInstruction(new addi(new Register(RegNameColloquial.t1), new Register(RegNameColloquial.t1), new Immediate(-16, 12), (ITypeMetadata) Decoder.instructionTypeIndex.get("addi"),s));
-
-//        s.insertInstruction(new sw(new Immediate(0,12), ));
         s.start(true);
         Scanner scanner = new Scanner(System.in);
         do{
             try {
-                s.dumpRegisters();
-                System.out.println("press enter to step through the program or enter any text to interpret it as a RISC-V instruction and append it to the end of this program");
+                s.dumpTemps();
+                if(s.lastInstruction != null) {
+                    String hexPC = Integer.toHexString(s.PC);
+                    // prepend 0x and any 0's to make it of length 8
+                    hexPC = "0x" + "0".repeat(8 - hexPC.length()) + hexPC;
+                    System.out.println("Current Position: " + hexPC + " : Current Instruction: " + s.getInstruction(s.PC) +  ": Last Instruction:" + s.lastInstruction.toString());
+                }
+//                System.out.println("press enter to step through the program or enter any text to interpret it as a RISC-V instruction and append it to the end of this program (not PC)");
                 String input = scanner.nextLine();
-                if(input.isEmpty())
-                    continue;
-                Decoder.decode(input, s);
+                if(!input.isEmpty()) {
+                    if(input.equals("exit") || input.equals("quit"))
+                    {
+                        System.exit(0);
+                        return;
+                    }
+                    Decoder.decode(input, s);
+                }
+                s.step();
 
             }catch (Exception ignore){}
-        } while (s.step());
+        } while (true);
 
 
     }
