@@ -5,6 +5,7 @@ import org.RiscVEmulator.Instructions.JType.jal;
 import org.RiscVEmulator.Instructions.RType.*;
 import org.RiscVEmulator.Instructions.IType.*;
 import org.RiscVEmulator.Instructions.SType.*;
+import org.RiscVEmulator.Instructions.UType.*;
 import org.RiscVEmulator.Instructions.PseudoInstruction.*;
 import org.RiscVEmulator.Registers.Immediate;
 import org.RiscVEmulator.Registers.RegNameColloquial;
@@ -49,11 +50,14 @@ public class Decoder {
         instructionTypeIndex.put("lhu", new ITypeMetadata(0b0000011,0x5, 0x0));
 
 
-
         // S Type
         instructionTypeIndex.put("sw", new STypeMetadata(0x2));
         instructionTypeIndex.put("sh", new STypeMetadata(0x1));
         instructionTypeIndex.put("sb", new STypeMetadata(0x0));
+
+        // U Type
+        instructionTypeIndex.put("lui", new UTypeMetadata(0b0110111));
+        instructionTypeIndex.put("auipc", new UTypeMetadata(0b0010111));
 
         // J Type
         instructionTypeIndex.put("jal", new JTypeMetadata());
@@ -69,7 +73,7 @@ public class Decoder {
 
 
     public static Instruction decode(String input, State s){
-        if(input.isEmpty())
+        if(input.isEmpty() || input.startsWith("#"))
             return null;
 
         if (checkLabel(input, s)){
@@ -119,6 +123,11 @@ public class Decoder {
 
             case JTypeMetadata data -> {
                 Instruction res = decodeJType(data, parts[0], parts[1], s);
+                s.insertInstruction(res);
+                return res;
+            }
+            case UTypeMetadata data -> {
+                Instruction res = decodeUType(data, parts[0], parts[1], s);
                 s.insertInstruction(res);
                 return res;
             }
@@ -291,6 +300,48 @@ public class Decoder {
                 case "slti" -> new slti(rd, rs1, immediate, meta, state);
                 case "sltiu" -> new sltiu(rd, rs1, immediate, meta, state);
                 case "jalr" -> new jalr(rd, rs1, immediate, meta, state);
+
+                default -> throw new IllegalStateException("Unexpected value: " + instName);
+            };
+        }
+        catch (Exception e){
+            System.err.println("Error when parsing instruction: " + e.getMessage());
+            return null;
+        }
+    }
+
+    private static Instruction decodeUType(UTypeMetadata meta, String instName, String input, State state){
+        String[] split = input.split(",");
+        if(split.length != 2)
+        {
+            System.err.println("Invalid U-Type instruction format, requires <rd>,<imm>. Got: " + Arrays.toString(split));
+            return null;
+        }
+        for (int i = 0; i < split.length; i++) {
+            split[i] = split[i].stripLeading().stripTrailing();
+            split[i] = split[i].toLowerCase();
+            split[i] = split[i].replace(" ", "");
+        }
+        try {
+            Register rd = tryParseRegister(split[0]);
+
+            int imm = 0;
+            // if starts with 0x or 0b, then parse as hex or binary
+            if (split[1].startsWith("0x")){
+                imm = Integer.parseInt(split[1].substring(2), 16);
+            }
+            else if (split[1].startsWith("0b")){
+                imm = Integer.parseInt(split[1].substring(2), 2);
+            }
+            else{
+                imm = Integer.parseInt(split[1]);
+            }
+            Immediate immediate = new Immediate(imm, 20);
+
+
+            return switch (instName){
+                case "lui" -> new lui(rd, immediate, meta, state);
+                case "auipc" -> new auipc(rd, immediate, meta, state);
 
                 default -> throw new IllegalStateException("Unexpected value: " + instName);
             };

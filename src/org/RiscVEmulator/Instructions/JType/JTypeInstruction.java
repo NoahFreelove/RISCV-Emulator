@@ -13,7 +13,7 @@ public abstract class JTypeInstruction extends Instruction {
     protected Immediate imm;
     protected String label;
     public JTypeInstruction(String instName, Register rd, Immediate imm, String label, JTypeMetadata meta, State state) {
-        super(instName, InstructionType.R_TYPE, meta, state);
+        super(instName, InstructionType.J_TYPE, meta, state);
         this.rd = rd;
         this.label = label;
         this.imm = imm;

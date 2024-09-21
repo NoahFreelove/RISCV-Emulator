@@ -13,7 +13,7 @@ public abstract class ITypeInstruction  extends Instruction {
     protected Register rs1;
     protected Immediate imm;
     public ITypeInstruction(String instName, Register rd, Register rs1, Immediate imm, ITypeMetadata meta, State state) {
-        super(instName, InstructionType.R_TYPE, meta, state);
+        super(instName, InstructionType.I_TYPE, meta, state);
         this.rd = rd;
         this.rs1 = rs1;
         this.imm = imm;

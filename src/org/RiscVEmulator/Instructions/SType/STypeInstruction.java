@@ -15,7 +15,7 @@ public abstract class STypeInstruction extends Instruction {
     // remember that rs1 is the one in the parenthesis!
     // sw rs2, offset(rs1)
     public STypeInstruction(String instName, Immediate imm, Register rs1, Register rs2, STypeMetadata meta, State state) {
-        super(instName, InstructionType.R_TYPE, meta, state);
+        super(instName, InstructionType.S_TYPE, meta, state);
         this.imm = imm;
         this.rs1 = rs1;
         this.rs2 = rs2;
