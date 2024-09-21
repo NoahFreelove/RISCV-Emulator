@@ -42,6 +42,14 @@ public class Decoder {
         instructionTypeIndex.put("srli", new ITypeMetadata(0x5, 0x00));
         instructionTypeIndex.put("jalr", new ITypeMetadata(0b1100111,0x0, 0x0));
 
+        instructionTypeIndex.put("lb", new ITypeMetadata(0b0000011,0x0, 0x0));
+        instructionTypeIndex.put("lh", new ITypeMetadata(0b0000011,0x1, 0x0));
+        instructionTypeIndex.put("lw", new ITypeMetadata(0b0000011,0x2, 0x0));
+        instructionTypeIndex.put("lbu", new ITypeMetadata(0b0000011,0x4, 0x0));
+        instructionTypeIndex.put("lhu", new ITypeMetadata(0b0000011,0x5, 0x0));
+
+
+
         // S Type
         instructionTypeIndex.put("sw", new STypeMetadata(0x2));
         instructionTypeIndex.put("sh", new STypeMetadata(0x1));
@@ -93,6 +101,12 @@ public class Decoder {
                 return res;
             }
             case ITypeMetadata data -> {
+                if(parts[0].equals("lw") || parts[0].equals("lh") || parts[0].equals("lb") || parts[0].equals("lhu") || parts[0].equals("lbu"))
+                {
+                    Instruction res = decodeLType(data, parts[0], parts[1], s);
+                    s.insertInstruction(res);
+                    return res;
+                }
                 Instruction res = decodeIType(data, parts[0], parts[1], s);
                 s.insertInstruction(res);
                 return res;
@@ -336,6 +350,61 @@ public class Decoder {
         }
     }
 
+    private static Instruction decodeLType(ITypeMetadata meta, String instName, String input, State state){
+        String[] split = input.split(",");
+        if(split.length != 2)
+        {
+            System.err.println("Invalid L-Type instruction format, requires <rs2>,<offset>(<rs1>). Got: " + Arrays.toString(split));
+            return null;
+        }
+        for (int i = 0; i < split.length; i++) {
+            split[i] = split[i].stripLeading().stripTrailing();
+            split[i] = split[i].toLowerCase();
+            split[i] = split[i].replace(" ", "");
+        }
+        try {
+            Register rs2 = tryParseRegister(split[0]);
+
+
+            // use regex to parse offset and dest register. form: rs2, offset(rs1)
+            String[] parts = split[1].split("\\(");
+            if(parts.length != 2){
+                System.err.println("Invalid L-Type instruction format, requires <rs2>,<offset>(<rs1>). Got: " + Arrays.toString(parts));
+                return null;
+            }
+            parts[1] = parts[1].substring(0, parts[1].length()-1); // remove the last character which is ')'
+
+            Register rs1 = tryParseRegister(parts[1]);
+
+            int imm;
+            // if starts with 0x or 0b, then parse as hex or binary
+            if (parts[0].startsWith("0x")){
+                imm = Integer.parseInt(parts[0].substring(2), 16);
+            }
+            else if (parts[0].startsWith("0b")){
+                imm = Integer.parseInt(parts[0].substring(2), 2);
+            }
+            else{
+                imm = Integer.parseInt(parts[0]);
+            }
+
+            Immediate immediate = new Immediate(imm, 12);
+
+            return switch (instName){
+                case "lw" -> new lw(immediate, rs1, rs2, meta, state);
+                case "lh" -> new lh(immediate, rs1, rs2, meta, state);
+                case "lb" -> new lb(immediate, rs1, rs2, meta, state);
+                case "lhu" -> new lhu(immediate, rs1, rs2, meta, state);
+                case "lbu" -> new lbu(immediate, rs1, rs2, meta, state);
+                default -> throw new IllegalStateException("Unexpected value: " + instName);
+            };
+        }
+        catch (Exception e){
+            System.err.println("Error when parsing instruction: " + e.getMessage());
+            return null;
+        }
+    }
+
     private static Instruction decodeSType(STypeMetadata meta, String instName, String input, State state){
         String[] split = input.split(",");
         if(split.length != 2)
@@ -373,8 +442,8 @@ public class Decoder {
             else{
                 imm = Integer.parseInt(parts[0]);
             }
-            Immediate immediate = new Immediate(imm, 12);
 
+            Immediate immediate = new Immediate(imm, 12);
 
             return switch (instName){
                 case "sw" -> new sw(immediate, rs1, rs2, meta, state);

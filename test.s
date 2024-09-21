@@ -1,5 +1,5 @@
-li t0, 3
-somelabel:
-li t0, 2
-li t0, 5
-jal t3, someLabel
+li t0, 10
+addi sp, sp, -4
+sw t0, 0(sp)
+li t0, 0
+lw t0, 0(sp)

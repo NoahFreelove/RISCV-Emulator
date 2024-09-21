@@ -37,8 +37,10 @@ public class State {
     public int loadWord(int addr_bytes){
         int addr_bits = addr_bytes*8;
 
-        if (addr_bits < DATA_START || addr_bits >= STACK_MAX)
-            return -1;
+        if (addr_bits < DATA_START || addr_bits >= STACK_MAX) {
+            System.err.println("Target address: " + addr_bytes + " is not in range [DATA_START, STACKMAX) - loading 0.");
+            return 0;
+        }
         return Integer.parseInt(memory.substring(addr_bits, addr_bits+32), 2);
     }
 
